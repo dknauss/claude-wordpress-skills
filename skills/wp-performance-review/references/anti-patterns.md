@@ -11,25 +11,25 @@ Complete catalog of performance anti-patterns for WordPress code review.
 | `query_posts()` | CRITICAL | Replaces main query, breaks pagination |
 | `session_start()` | CRITICAL | Cache bypass |
 | `setInterval.*fetch` | CRITICAL | Polling/self-DDoS |
-| `intval($var)` in query args | CRITICAL | Falsy → 0 → no WHERE |
+| `intval($var)` in query args without validation | WARNING | Hides logic bugs and can trigger needless queries |
 | `update_option` on frontend | CRITICAL | DB write per request |
 | `cache_results => false` | WARNING | Disables query cache |
 | `LIKE '%...%'` | WARNING | Full table scan |
-| `post__not_in` | WARNING | Slow exclusion, filter in PHP instead |
+| `post__not_in` | WARNING | Large exclusion lists can become expensive |
 | `meta_query` with `value` | WARNING | Unindexed scan |
 | `wp_remote_get` uncached | WARNING | Blocking HTTP |
 | `$.post(` for reads | WARNING | Bypasses cache |
 | `add_option` without autoload=no | WARNING | Bloats alloptions |
 | `setcookie()` on public pages | WARNING | Prevents caching |
 | `url_to_postid()` | WARNING | Uncached lookup |
-| `get_template_part` in loops | WARNING | Repeated file I/O |
+| Custom queries or remote calls inside loops | WARNING | Repeated work / N+1 risk |
 | `admin-ajax.php` | WARNING | Full WP bootstrap |
 | `in_array()` without strict | WARNING | O(n) complexity at scale |
 | `import _ from 'lodash'` | WARNING | Full library import bloats bundle |
 | Heredoc/nowdoc syntax | WARNING | Prevents late escaping |
 | Page builder plugins | WARNING | High query count |
 | Infinite scroll with POST | WARNING | Uncached requests |
-| Many `registerBlockStyle()` | WARNING | Creates iframe per style |
+| Heavy editor preview/data-fetch logic | WARNING | Slows editor load |
 | Missing script version | INFO | Cache busting issues |
 | Missing `no_found_rows` | INFO | Unnecessary count |
 
@@ -105,19 +105,18 @@ $query = new WP_Query(
 );
 ```
 
-### Missing WHERE Clause (CRITICAL)
-Falsy values cast to int become 0, removing the WHERE clause entirely.
+### Unvalidated IDs in Query Args (WARNING)
+Falsy values cast to int become 0, which usually points to a logic bug or a wasted query. Validate IDs before querying so the behavior is explicit.
 
 ```php
-// ❌ BAD: If $post_id is false/null, this becomes p=0 (no filter!).
+// ❌ BAD: If $post_id is false/null, this becomes p=0.
 $post_id = get_some_id_that_might_fail(); // Returns false.
 $query   = new WP_Query(
     array(
         'p'              => intval( $post_id ), // intval( false ) = 0.
-        'posts_per_page' => -1,
     )
 );
-// Result: SELECT * FROM wp_posts WHERE 1=1... (returns ALL posts).
+// Result: unnecessary query work and unclear intent.
 
 // ✅ GOOD: Validate before querying.
 $post_id = get_some_id_that_might_fail();
@@ -151,12 +150,12 @@ $results = $wpdb->get_results(
     )
 );
 
-// ✅ BEST: Offload to ElasticSearch for full-text search.
+// ✅ BEST: Offload to Elasticsearch for full-text search.
 // Use ElasticPress plugin for search queries.
 ```
 
 ### NOT IN Queries (WARNING)
-`post__not_in` and `NOT IN` clauses scale poorly with large exclusion lists. A better approach is filtering in PHP instead.
+`post__not_in` and `NOT IN` clauses can scale poorly with large exclusion lists, especially when combined with ordering and pagination. Do not blindly replace them with PHP-side filtering because that changes query semantics and can underfill result sets.
 
 ```php
 // ❌ BAD: Slow with many IDs - creates expensive SQL.
@@ -176,27 +175,20 @@ $query = new WP_Query(
     )
 );
 
-// ✅ BETTER: Filter in PHP after fetching extra posts.
-$posts_to_exclude = array( 1, 2, 3, 4, 5 );
-$query            = new WP_Query(
+// ✅ BETTER: Narrow the candidate set first, then exclude from a smaller list.
+$candidate_ids = prefix_get_candidate_post_ids();
+
+$query = new WP_Query(
     array(
-        'posts_per_page' => 10 + count( $posts_to_exclude ), // Fetch extra.
+        'post__in'       => $candidate_ids,
+        'post__not_in'   => $small_exclusion_list,
+        'posts_per_page' => 10,
+        'orderby'        => 'post__in',
         'no_found_rows'  => true,
     )
 );
 
-$count = 0;
-while ( $query->have_posts() && $count < 10 ) {
-    $query->the_post();
-
-    if ( in_array( get_the_ID(), $posts_to_exclude, true ) ) {
-        continue; // Skip excluded posts.
-    }
-
-    // Process post.
-    $count++;
-}
-wp_reset_postdata();
+// ✅ ALSO GOOD: Cache or precompute candidate IDs for repeated requests.
 ```
 
 ### Over-use of Taxonomies (WARNING)
@@ -455,17 +447,21 @@ function prefix_cron_fetch_weather() {
 
 ## Template Anti-Patterns
 
-### Over-use of get_template_part (WARNING)
-Each template part requires file system access and additional processing.
+### Heavy Work Inside Loops (WARNING)
+The expensive part of template rendering is usually repeated queries, remote requests, or cache misses inside the loop. `get_template_part()` itself is usually fine unless profiling shows otherwise.
 
 ```php
-// ❌ BAD: Template part called 50 times in loop.
+// ❌ BAD: Query work repeated inside the loop.
 while ( have_posts() ) {
     the_post();
-    get_template_part( 'partials/card' ); // File access each iteration.
+    $views = get_post_meta( get_the_ID(), 'views', true );
+    $data  = wp_remote_get( 'https://api.example.com/card/' . get_the_ID() );
 }
 
-// ✅ GOOD: Use template part with data passing (WordPress 5.5+).
+// ✅ GOOD: Prime or batch data before the loop, then render normally.
+$post_ids = wp_list_pluck( $query->posts, 'ID' );
+update_postmeta_cache( $post_ids );
+
 while ( have_posts() ) {
     the_post();
     get_template_part(
@@ -474,24 +470,9 @@ while ( have_posts() ) {
         array(
             'post_id' => get_the_ID(),
             'title'   => get_the_title(),
+            'views'   => get_post_meta( get_the_ID(), 'views', true ),
         )
     );
-}
-
-// ✅ ALTERNATIVE: Cache rendered output for identical partials.
-$card_cache = array();
-
-while ( have_posts() ) {
-    the_post();
-    $post_id = get_the_ID();
-
-    if ( ! isset( $card_cache[ $post_id ] ) ) {
-        ob_start();
-        get_template_part( 'partials/card' );
-        $card_cache[ $post_id ] = ob_get_clean();
-    }
-
-    echo $card_cache[ $post_id ]; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 }
 ```
 
@@ -580,7 +561,7 @@ get_template_part(
 ```
 
 ### Storing Large Data in Options (WARNING)
-The wp_options table should stay lean. Best practice: under 500 rows, autoloaded data under 1MB total. Large autoloaded options slow every page load.
+The `wp_options` table should stay lean, especially autoloaded data. Monitor autoload size and access patterns rather than relying on a single row-count rule.
 
 ```php
 // ❌ BAD: Storing HTML/large data in options.
@@ -1033,31 +1014,30 @@ wp_enqueue_script('my-script', get_template_directory_uri() . '/js/script.js', [
 
 ## Block Editor Anti-Patterns
 
-### Too Many Custom Block Styles (WARNING)
-Each block style creates a preview iframe in the editor, causing severe performance degradation.
+### Heavy Editor Preview Logic (WARNING)
+Editor performance usually degrades because of broad data fetching, large preview payloads, or expensive work during `edit()`, not because of style registration alone.
 
 ```javascript
-// ❌ BAD: Each style = separate iframe for preview
-registerBlockStyle('core/group', { name: 'green-dots', label: 'Green Dots' });
-registerBlockStyle('core/group', { name: 'blue-waves', label: 'Blue Waves' });
-registerBlockStyle('core/group', { name: 'red-stripes', label: 'Red Stripes' });
-// 10+ styles = editor becomes unusable
+// ❌ BAD: Expensive fetch during editor boot.
+import apiFetch from '@wordpress/api-fetch';
 
-// ✅ GOOD: Use custom attributes with block filters
-import { addFilter } from '@wordpress/hooks';
+function Edit() {
+    apiFetch( { path: '/wp/v2/posts?per_page=100' } ).then( () => {} );
+    return <div>Preview</div>;
+}
 
-addFilter('blocks.registerBlockType', 'namespace/bg-patterns', (settings, name) => {
-    if (name !== 'core/group') return settings;
-    
-    return {
-        ...settings,
-        attributes: {
-            ...settings.attributes,
-            backgroundPattern: { type: 'string', default: '' }
-        }
-    };
-});
-// Add UI via BlockEdit filter, style via render_block filter
+// ✅ GOOD: Fetch lazily, keep previews small, and cache where practical.
+import { useEffect, useState } from '@wordpress/element';
+
+function Edit() {
+    const [ posts, setPosts ] = useState( [] );
+
+    useEffect( () => {
+        apiFetch( { path: '/wp/v2/posts?per_page=5&_fields=id,title' } ).then( setPosts );
+    }, [] );
+
+    return <Preview posts={ posts } />;
+}
 ```
 
 ### Re-sanitizing InnerBlocks Content (WARNING)

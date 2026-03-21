@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Claude Code plugin that provides WordPress performance review skills. It enables Claude to perform comprehensive code reviews for WordPress themes, plugins, and custom code with a focus on performance optimization.
+This repository currently ships one Claude Code skill, `wp-performance-review`, plus two slash commands that invoke it. The focus is WordPress performance review for themes, plugins, and custom code.
 
 ## Repository Structure
 
@@ -38,8 +38,10 @@ commands/                 # Slash command definitions
    ---
    ```
 3. Add references in `skills/wp-your-skill/references/` if needed
-4. Update `marketplace.json` to include the new skill
-5. Update `README.md` skill table
+4. Update `README.md` and `CONTRIBUTING.md` to document the new skill
+5. Run `python3 scripts/validate_repo.py`
+
+Note: while `.claude-plugin/marketplace.json` points to the repository root (`"./"`), adding a new skill does not require a per-skill marketplace entry.
 
 ## Adding Slash Commands
 
@@ -72,6 +74,9 @@ Use consistent severity labels in skill content:
 cp -r skills/your-skill ~/.claude/skills/
 
 # Restart Claude Code to load changes
+
+# Validate repository metadata and docs
+python3 scripts/validate_repo.py
 ```
 
 ## Versioning

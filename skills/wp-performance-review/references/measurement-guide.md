@@ -273,22 +273,22 @@ if (function_exists('newrelic_name_transaction')) {
 
 ### Custom Instrumentation
 ```php
-// Track custom code segments
-if (function_exists('newrelic_start_transaction')) {
-    newrelic_start_transaction('my_custom_process');
-    
-    // Your code
-    process_data();
-    
-    newrelic_end_transaction();
-}
-
 // Add custom attributes for filtering
 if (function_exists('newrelic_add_custom_parameter')) {
     newrelic_add_custom_parameter('post_type', get_post_type());
     newrelic_add_custom_parameter('user_role', $current_user_role);
 }
+
+// Record custom events inside an existing web transaction
+if (function_exists('newrelic_record_custom_event')) {
+    newrelic_record_custom_event('WordPressPerformance', [
+        'component' => 'my_custom_process',
+        'post_type' => get_post_type(),
+    ]);
+}
 ```
+
+For CLI workers or background jobs, use the New Relic API that matches that runtime rather than starting a second web transaction inside a normal request.
 
 ### Key New Relic Metrics
 - **Apdex score** - User satisfaction (target: > 0.9)
@@ -325,7 +325,7 @@ Establish baseline performance metrics:
 Homepage: < 200ms, < 30 queries
 Archive:  < 300ms, < 50 queries
 Single:   < 250ms, < 40 queries
-Search:   < 500ms (with ElasticSearch)
+Search:   < 500ms (with Elasticsearch)
 ```
 
 ### CI/CD Integration

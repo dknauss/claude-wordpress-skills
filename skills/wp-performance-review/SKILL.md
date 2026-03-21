@@ -1,6 +1,6 @@
 ---
 name: wp-performance-review
-description: WordPress performance code review and optimization analysis. Use when reviewing WordPress PHP code for performance issues, auditing themes/plugins for scalability, optimizing WP_Query, analyzing caching strategies, checking code before launch, or detecting anti-patterns, or when user mentions "performance review", "optimization audit", "slow WordPress", "slow queries", "high-traffic", "scale WordPress", "code review", "timeout", "500 error", "out of memory", or "site won't load". Detects anti-patterns in database queries, hooks, object caching, AJAX, and template loading.
+description: WordPress performance code review and optimization analysis. Use when reviewing WordPress PHP code for performance issues, auditing themes/plugins for scalability, optimizing WP_Query, analyzing caching strategies, checking code before launch, or detecting anti-patterns, or when user mentions "performance review", "optimization audit", "slow WordPress", "slow queries", "high-traffic", "scale WordPress", "code review", "timeout", "500 error", "out of memory", or "site won't load". Detects anti-patterns in database queries, hooks, object caching, AJAX, template loading, and editor-side performance.
 ---
 
 # WordPress Performance Review Skill
@@ -19,9 +19,9 @@ Systematic performance code review for WordPress themes, plugins, and custom cod
 - Investigating memory exhaustion or DB locks
 
 **Don't use for:**
-- Security-only audits (use wp-security-review when available)
-- Gutenberg block development patterns (use wp-gutenberg-blocks when available)
+- Security-only audits (use a dedicated security-review skill if one is installed)
 - General PHP code review not specific to WordPress
+- Product or UX review that does not involve WordPress performance behavior
 
 ## Code Review Workflow
 
@@ -46,7 +46,7 @@ Scan for:
 Scan for:
 - Missing `posts_per_page` argument → WARNING: Defaults to blog setting
 - `'meta_query'` with `'value'` comparisons → WARNING: Unindexed column scan
-- `post__not_in` with large arrays → WARNING: Slow exclusion
+- Large `post__not_in` arrays with pagination/sorting → WARNING: Can generate expensive SQL; review case-by-case
 - `LIKE '%term%'` (leading wildcard) → WARNING: Full table scan
 - Missing `no_found_rows => true` when not paginating → INFO: Unnecessary count
 
@@ -59,7 +59,7 @@ Scan for:
 
 ### Template Files (`*.php` in theme)
 Scan for:
-- `get_template_part` in loops → WARNING: Consider caching output
+- Custom queries, uncached `get_post_meta()`, or remote calls inside loops → WARNING: Repeated work / N+1 risk
 - Database queries inside loops (N+1) → CRITICAL: Query multiplication
 - `wp_remote_get` in templates → WARNING: Blocks rendering
 
@@ -72,9 +72,9 @@ Scan for:
 
 ### Block Editor / Gutenberg Files (`block.json`, `*.js` in blocks/)
 Scan for:
-- Many `registerBlockStyle()` calls → WARNING: Each creates preview iframe
+- Heavy editor-side data fetching or preview logic → WARNING: Slows editor load
 - `wp_kses_post($content)` in render callbacks → WARNING: Breaks InnerBlocks
-- Static blocks without `render_callback` → INFO: Consider dynamic for maintainability
+- Large editor bundles or broad imports → WARNING: Bloats editor runtime
 
 ### Asset Registration (`functions.php`, `*.php`)
 Scan for:
@@ -91,7 +91,7 @@ Scan for:
 
 ### WP-Cron
 Scan for:
-- Missing `DISABLE_WP_CRON` constant → INFO: Cron runs on page requests
+- Cron-heavy sites relying only on request-triggered WP-Cron → INFO: Check whether a real system cron is needed
 - Long-running cron callbacks (loops over all users/posts) → CRITICAL: Blocks cron queue
 - `wp_schedule_event` without checking if already scheduled → WARNING: Duplicate schedules
 
@@ -123,7 +123,6 @@ grep -rn "cache_results.*false" .
 
 # JavaScript bundle issues
 grep -rn "import.*from.*lodash['\"]" .  # Full lodash import
-grep -rn "registerBlockStyle" .  # Many block styles = performance issue
 
 # Asset loading issues
 grep -rn "wp_enqueue_script\|wp_enqueue_style" . | grep -v "is_page\|is_singular\|is_admin"
@@ -178,12 +177,13 @@ add_action( 'pre_get_posts', function( $query ) {
     }
 } );
 
-// ❌ CRITICAL: Missing WHERE clause (falsy ID becomes 0).
+// ❌ WARNING: Unvalidated ID can hide a logic bug and trigger needless queries.
 $query = new WP_Query( array( 'p' => intval( $maybe_false_id ) ) );
 
 // ✅ GOOD: Validate ID before querying.
-if ( ! empty( $maybe_false_id ) ) {
-    $query = new WP_Query( array( 'p' => intval( $maybe_false_id ) ) );
+$post_id = absint( $maybe_false_id );
+if ( $post_id > 0 ) {
+    $query = new WP_Query( array( 'p' => $post_id ) );
 }
 
 // ❌ WARNING: LIKE with leading wildcard (full table scan).
@@ -195,14 +195,11 @@ $wpdb->get_results( $wpdb->prepare(
     $wpdb->esc_like( $term ) . '%'
 ) );
 
-// ❌ WARNING: NOT IN queries (filter in PHP instead).
+// ❌ WARNING: Large NOT IN queries can become expensive, especially with pagination.
 'post__not_in' => $excluded_ids
 
-// ✅ GOOD: Fetch all, filter in PHP (faster for large exclusion lists).
-$posts = get_posts( array( 'posts_per_page' => 100 ) );
-$posts = array_filter( $posts, function( $post ) use ( $excluded_ids ) {
-    return ! in_array( $post->ID, $excluded_ids, true );
-} );
+// ✅ GOOD: Prefer positive inclusion, smaller exclusion lists, or precomputed candidate IDs.
+'post__in' => $candidate_ids
 ```
 
 ### Hooks & Actions
@@ -308,8 +305,8 @@ if ( is_wp_error( $response ) ) {
 
 ### WP Cron
 ```php
-// ❌ WARNING: WP Cron runs on page requests.
-// Add to wp-config.php:
+// INFO: On high-traffic or cron-heavy sites, request-driven cron may not be enough.
+// Consider adding to wp-config.php:
 define( 'DISABLE_WP_CRON', true );
 // Run via server cron: * * * * * wp cron event run --due-now
 

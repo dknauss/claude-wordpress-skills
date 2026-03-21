@@ -13,7 +13,7 @@ When reviewing WP_Query code, verify:
 - [ ] `update_post_term_cache => false` if terms not used
 - [ ] Date limits on archive queries (recent content only)
 - [ ] `include_children => false` if child terms not needed
-- [ ] No `post__not_in` with large arrays
+- [ ] Large `post__not_in` arrays are justified and measured
 - [ ] No `meta_query` on `meta_value` (use taxonomy or key presence)
 - [ ] Results cached with `wp_cache_set` if repeated
 
@@ -110,7 +110,7 @@ Meta queries are expensive - minimize usage:
 // ✅ BETTER: Use taxonomies for filterable attributes
 // Register 'color' and 'size' as taxonomies instead
 
-// ✅ ALTERNATIVE: Offload to ElasticSearch
+// ✅ ALTERNATIVE: Offload to Elasticsearch
 // Configure ElasticPress to index post meta
 ```
 
@@ -159,8 +159,14 @@ function get_featured_posts() {
         $query = new WP_Query([
             'post_type' => 'post',
             'posts_per_page' => 5,
-            'meta_key' => 'featured',
-            'meta_value' => '1'
+            'tax_query' => [
+                [
+                    'taxonomy' => 'post_tag',
+                    'field' => 'slug',
+                    'terms' => ['featured'],
+                ],
+            ],
+            'no_found_rows' => true,
         ]);
         
         $posts = $query->posts;
@@ -190,9 +196,9 @@ function get_expensive_data($id) {
 }
 ```
 
-## ElasticSearch Offloading
+## Elasticsearch Offloading
 
-For complex searches, offload to ElasticSearch via ElasticPress:
+For complex searches, offload to Elasticsearch via ElasticPress:
 
 ### When to Offload
 
@@ -215,7 +221,7 @@ For complex searches, offload to ElasticSearch via ElasticPress:
 
 // Force MySQL for specific queries
 $query = new WP_Query([
-    'ep_integrate' => false,  // Skip ElasticSearch
+    'ep_integrate' => false,  // Skip Elasticsearch
     // ... args
 ]);
 ```
@@ -250,6 +256,8 @@ ALTER TABLE wp_postmeta ADD INDEX meta_key_value (meta_key, meta_value(50));
 -- Add composite index
 ALTER TABLE wp_posts ADD INDEX type_status_date (post_type, post_status, post_date);
 ```
+
+Only add custom indexes on infrastructure you control, after measurement, and after confirming the host or platform allows schema changes.
 
 ## Query Monitor Integration
 

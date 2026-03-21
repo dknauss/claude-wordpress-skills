@@ -53,7 +53,13 @@ Want to create a new WordPress skill? See [Creating a New Skill](#creating-a-new
    cp -r skills/your-skill ~/.claude/skills/
    ```
 
-4. **Restart Claude Code** to load the updated skill.
+4. **Run the repository validator**:
+
+   ```bash
+   python3 scripts/validate_repo.py
+   ```
+
+5. **Restart Claude Code** to load the updated skill.
 
 ## Skill Structure
 
@@ -152,19 +158,13 @@ good_code_example();
 
 3. **Add references** if the skill needs supporting documentation.
 
-4. **Update marketplace.json** to include the new skill:
+4. **Update README.md** to list the new skill.
 
-   ```json
-   {
-     "name": "wp-your-skill",
-     "source": "./skills/wp-your-skill",
-     "description": "Brief description of what it does"
-   }
-   ```
-
-5. **Update README.md** to list the new skill in the table.
+5. **Run `python3 scripts/validate_repo.py`**.
 
 6. **Test thoroughly** before submitting.
+
+While `.claude-plugin/marketplace.json` points to the repository root (`"./"`), new skills do not need individual marketplace entries unless the packaging model changes.
 
 ## Pull Request Process
 
@@ -174,9 +174,11 @@ good_code_example();
 
 3. **Add a changelog entry** in CHANGELOG.md under "Unreleased".
 
-4. **Submit the PR** with a clear description of changes.
+4. **Run `python3 scripts/validate_repo.py`**.
 
-5. **Respond to feedback** — we may ask for adjustments.
+5. **Submit the PR** with a clear description of changes.
+
+6. **Respond to feedback** — we may ask for adjustments.
 
 ## Code of Conduct
 

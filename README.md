@@ -1,40 +1,33 @@
 # Claude WordPress Skills
 
-Professional WordPress engineering skills for [Claude Code](https://claude.ai/code) - performance optimization, security auditing, Gutenberg block development, and theme/plugin best practices.
+WordPress-focused skills for [Claude Code](https://claude.ai/code), currently centered on performance review for plugins, themes, and custom code.
 
-## Available Skills
+## Shipped Skills
 
 | Skill | Description | Status |
 |-------|-------------|--------|
 | **wp-performance-review** | Performance code review and optimization analysis | ✅ |
-| **wp-security-review** | Security audit and hardening code review | 🚧 |
-| **wp-gutenberg-blocks** | Block Editor / Gutenberg development | 🚧 |
-| **wp-theme-development** | Theme development best practices | 🚧 |
-| **wp-plugin-development** | Plugin architecture and standards | 🚧 |
+
+## Planned Skills
+
+- `wp-security-review`
+- `wp-gutenberg-blocks`
+- `wp-theme-development`
+- `wp-plugin-development`
 
 ## Installation
 
-### Option 1: Add as Marketplace
+### Option 1: Clone Locally
 
-Subscribe to receive all skills and updates (Recommended):
-
-```bash
-# In Claude Code CLI
-/plugin marketplace add elvismdev/claude-wordpress-skills
-
-# Install specific skills
-/plugin install claude-wordpress-skills@claude-wordpress-skills
-```
-
-### Option 2: Clone Locally
+Install the repository as a local Claude plugin:
 
 ```bash
 git clone https://github.com/elvismdev/claude-wordpress-skills.git ~/.claude/plugins/wordpress
 ```
 
-### Option 3: Add to Project
+The repository includes `.claude-plugin/` manifests for clients that support plugin-style installs from a repository checkout.
 
-Add as a git submodule for team-wide access:
+### Option 2: Add to Project
 
 ```bash
 # In your project root
@@ -44,7 +37,7 @@ git commit -m "Add WordPress Claude skills"
 
 Team members get the skills automatically when they clone or update the repo.
 
-### Option 4: Copy Individual Skills
+### Option 3: Copy Individual Skills
 
 Download and extract specific skills:
 
@@ -55,7 +48,7 @@ cp -r skills/wp-performance-review ~/.claude/skills/
 
 ## Slash Commands
 
-When installed, these commands become available:
+When the repository is installed as a plugin, these commands become available:
 
 | Command | Description |
 |---------|-------------|
@@ -87,13 +80,6 @@ When installed, these commands become available:
 | **Output** | Grouped by severity with line numbers | Quick list of matches |
 | **Use case** | Code review, PR review, optimization | Pre-deploy check, quick audit |
 
-When installed via marketplace, commands are namespaced:
-
-```bash
-/claude-wordpress-skills:wp-perf-review [path]
-/claude-wordpress-skills:wp-perf [path]
-```
-
 ## Natural Language Usage
 
 Skills also activate automatically based on context. Just ask naturally:
@@ -121,14 +107,14 @@ Claude will detect the context and apply the appropriate skill.
 
 Comprehensive performance code review covering:
 
-- **Database Query Anti-Patterns** - Unbounded queries, missing WHERE clauses, slow LIKE patterns, NOT IN performance
+- **Database Query Anti-Patterns** - Unbounded queries, unvalidated IDs, slow LIKE patterns, large exclusion-list pitfalls
 - **Hooks & Actions** - Expensive code on init, database writes on page load, inefficient hook placement
 - **Caching Issues** - Uncached function calls, object cache patterns, transient best practices
 - **AJAX & External Requests** - admin-ajax.php alternatives, polling patterns, HTTP timeouts
-- **Template Performance** - N+1 queries, get_template_part optimization
+- **Template Performance** - N+1 queries and heavy work inside loops
 - **PHP Code Patterns** - in_array() performance, heredoc escaping issues
 - **JavaScript Bundles** - Full library imports, defer/async strategies
-- **Block Editor** - registerBlockStyle overhead, InnerBlocks handling
+- **Block Editor** - heavy editor previews, expensive data fetching, InnerBlocks handling
 - **Platform Guidance** - Patterns for WordPress VIP, WP Engine, Pantheon, self-hosted
 
 Output includes severity levels (Critical/Warning/Info) with line numbers and fix recommendations.
@@ -137,17 +123,26 @@ Output includes severity levels (Critical/Warning/Info) with line numbers and fi
 
 - [Claude Code](https://claude.ai/code) CLI installed
 - Skills are loaded automatically - no additional dependencies
+- Python 3 if you want to run the repository validator locally
+
+## Validation
+
+Run the repository checks before opening a PR:
+
+```bash
+python3 scripts/validate_repo.py
+```
 
 ## Contributing
 
-🤝 Super welcome to contributions, please! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 Ways to contribute:
 
-- 🐛 Report issues or incorrect/deprecated advice
-- 💡 Suggest new anti-patterns or best practices
-- 📝 Improve documentation or examples
-- 🔧 Submit new skills
+- Report issues or incorrect/deprecated advice
+- Suggest new anti-patterns or best practices
+- Improve documentation or examples
+- Submit new skills
 
 ## License
 
@@ -159,4 +154,4 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ---
 
-**Note**: These skills represent community best practices for WordPress development and are not affiliated with or endorsed by any specific company or platform. Some patterns reflect my own experience with WordPress and from years of working alongside engineers far smarter than me - so bias is inevitable. Contributions are always welcome; I'm genuinely curious to hear different approaches and learn together.
+**Note**: These skills reflect practical WordPress performance-review guidance, not universal rules. Prefer measured evidence and platform-specific constraints over blanket heuristics, and open an issue when advice here stops matching current WordPress behavior.

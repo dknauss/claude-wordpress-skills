@@ -142,11 +142,14 @@ $data = wp_cache_get_multiple($keys, 'items');
 wp_cache_set('post_123', $data, 'my_plugin_posts');
 wp_cache_set('post_456', $data, 'my_plugin_posts');
 
-// Clear entire group (if supported by backend)
-wp_cache_flush_group('my_plugin_posts');  // Redis supports this
+// Prefer explicit invalidation or versioned keys for portability.
+wp_cache_delete('post_123', 'my_plugin_posts');
+wp_cache_delete('post_456', 'my_plugin_posts');
 ```
 
 ### Cache Key Versioning
+
+Portable invalidation is one reason versioned keys are often safer than backend-specific group flush APIs.
 
 ```php
 // Version cache keys for easy invalidation
