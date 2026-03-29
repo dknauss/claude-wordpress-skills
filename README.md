@@ -1,5 +1,7 @@
 # Claude WordPress Skills
 
+> **Note:** The canonical source for all WordPress agent skills is [dknauss/agent-skills](https://github.com/dknauss/agent-skills) (fork of [WordPress/agent-skills](https://github.com/WordPress/agent-skills)). The `wp-performance-review` skill has been migrated there. This repo is maintained as a public fork of [elvismdev/claude-wordpress-skills](https://github.com/elvismdev/claude-wordpress-skills) but is no longer the primary distribution point.
+
 WordPress-focused skills for [Claude Code](https://claude.ai/code), currently centered on performance review for plugins, themes, and custom code.
 
 ## Shipped Skills
