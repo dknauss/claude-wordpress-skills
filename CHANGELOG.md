@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- Corrected inaccurate performance-review guidance around `post__not_in`, unvalidated IDs, block editor heuristics, and template-loop advice
+- Aligned README, CLAUDE.md, and CONTRIBUTING.md with the repository's actual packaging model and shipped scope
+- Replaced non-portable or misleading examples in caching and New Relic reference material
+
+### Added
+
+- Repository validation script for manifest, skill, command, and documentation consistency
+- GitHub Actions workflow to run validation on pushes and pull requests
+
 ## 1.3.1 - 2025-11-28
 
 ### Improved
