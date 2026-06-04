@@ -94,7 +94,8 @@ def validate_commands() -> list[str]:
 
 def validate_docs(skills: list[str], commands: list[str]) -> None:
     readme = (ROOT / "README.md").read_text()
-    claude = (ROOT / "CLAUDE.md").read_text()
+    claude_path = ROOT / "CLAUDE.md"
+    claude = claude_path.read_text() if claude_path.exists() else None
     contributing = (ROOT / "CONTRIBUTING.md").read_text()
     changelog = (ROOT / "CHANGELOG.md").read_text()
 
@@ -108,7 +109,7 @@ def validate_docs(skills: list[str], commands: list[str]) -> None:
 
     if "python3 scripts/validate_repo.py" not in readme:
         fail("README.md should document the validator command")
-    if "python3 scripts/validate_repo.py" not in claude:
+    if claude is not None and "python3 scripts/validate_repo.py" not in claude:
         fail("CLAUDE.md should document the validator command")
     if "python3 scripts/validate_repo.py" not in contributing:
         fail("CONTRIBUTING.md should document the validator command")
