@@ -1,4 +1,6 @@
 # Claude WordPress Skills
+[![License](https://img.shields.io/github/license/dknauss/claude-wordpress-skills)](LICENSE) [![CI](https://github.com/dknauss/claude-wordpress-skills/actions/workflows/validate.yml/badge.svg)](https://github.com/dknauss/claude-wordpress-skills/actions/workflows/validate.yml) [![Latest Tag](https://img.shields.io/github/v/tag/dknauss/claude-wordpress-skills)](https://github.com/dknauss/claude-wordpress-skills/tags) [![Security Policy](https://img.shields.io/badge/security-policy-4c1)](SECURITY.md)
+
 
 > **Note:** The canonical source for all WordPress agent skills is [dknauss/agent-skills](https://github.com/dknauss/agent-skills) (fork of [WordPress/agent-skills](https://github.com/WordPress/agent-skills)). The `wp-performance-review` skill has been migrated there. This repo is maintained as a public fork of [elvismdev/claude-wordpress-skills](https://github.com/elvismdev/claude-wordpress-skills) but is no longer the primary distribution point.
 
